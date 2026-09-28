@@ -1,0 +1,31 @@
+id,descrizione,livello,timestampArrivo
+T001,Database cluster principale down,CRITICO,1732000010
+T002,Richiesta mouse ergonomico,BASSO,1732000001
+T003,Attacco DDoS su portale e-commerce,CRITICO,1732000005
+T004,Stampante secondo piano inceppata,MEDIO,1732000020
+T005,Ransomware rilevato su server file share,CRITICO,1732000015
+T006,VPN aziendale non accetta autenticazioni,ALTO,1732000012
+T007,Firewall perimetrale bloccato in kernel panic,CRITICO,1732000008
+T008,Certificato SSL dominio principale scaduto,ALTO,1732000025
+T009,Centralino VoIP irraggiungibile,ALTO,1732000030
+T010,Riga malformata senza campi sufficienti,CRITICO
+T011,Switch core piano terra spento,CRITICO,1732000002
+T012,Password utente bloccata dopo tentativi errati,basso,1732000045
+T013,Lentezza caricamento CRM aziendale,MEDIO,1732000060
+T014,Server Active Directory non sincronizza,ALTO,1732000035
+T015,Tastiera non funzionante stanza 104,BASSO,1732000070
+T016,Guasto alimentatore server backup,ALTO,1732000040
+T017,Errore di battitura livello sconosciuto,URGENTISSIMO,1732000080
+T018,Monitor aggiuntivo postazione grafica,BASSO,1732000090
+T019,Access Point Wi-Fi corridoio non emette segnale,MEDIO,1732000055
+T020,Timestamp non valido con caratteri alfabetici,ALTO,ieri_mattina
+T021,Perdita connettività fibra sede remota,CRITICO,1732000014
+T022,Richiesta installazione software CAD,MEDIO,1732000085
+T023,NAS di reparto in errore RAID degradato,ALTO,1732000050
+T024,Creazione casella email stagista,BASSO,1732000120
+T025,Proiettore sala conferenze senza segnale HDMI,MEDIO,1732000095
+T026,Bug bloccante release ambiente collaudo,ALTO,1732000065
+T027,Configurazione firma digitale nuovo portatile,BASSO,1732000130
+T028,Servizio fatturazione elettronica non risponde,CRITICO,1732000022
+T029,Richiesta webcam per postazione smart working,BASSO,1732000140
+T030,Cavo alimentazione tranciato,MEDIO,1732000105

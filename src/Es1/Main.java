@@ -1,3 +1,6 @@
+import Es1.LetturaInvalidaException;
+import Es1.LetturaSensore;
+
 void main() {
     // Dimostrazione trabocchetto autoboxing
     System.out.println("Dimostrazione trabocchetto autoboxing");

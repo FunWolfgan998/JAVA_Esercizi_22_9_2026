@@ -10,127 +10,113 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.PriorityQueue;
 
-public class GestoreTicket {
+public class Main {
 
-    /*
-     * MOTIVAZIONE SCELTA BufferedReader vs java.nio.file.Files.readAllLines:
-     * Files.readAllLines() carica tutte le righe del file dentro una lista in memoria (RAM O(n)).
-     * BufferedReader legge invece in streaming riga per riga con un buffer a dimensione fissa (RAM O(1)),
-     * evitando problemi di memoria se il file CSV contiene milioni di righe.
-     */
     public static void main(String[] args) {
-        String fileInput = "ticket.csv";
-        String fileOutput = "report_lavorazione.txt";
-        String fileErrori = "log_errori.txt";
+        String fileInput = "src/Es3/ticket.csv";
+        String fileOutput = "src/Es3/report_lavorazione.txt";
+        String fileErrori = "src/Es3/log_errori.txt";
 
-        // La PriorityQueue è un heap binario: add() e poll() costano O(log n), peek() costa O(1)
-        PriorityQueue<Ticket> codaLavorazione = new PriorityQueue<>();
+        PriorityQueue<Ticket> coda = new PriorityQueue<>();
 
-        // BONUS: Struttura dedicata per monitorare i soli ticket CRITICI ancora in attesa
-        PriorityQueue<Ticket> codaCriticiInAttesa = new PriorityQueue<>();
+        // Bonus: seconda PriorityQueue per tenere traccia dei soli ticket critici non ancora lavorati
+        PriorityQueue<Ticket> criticiInAttesa = new PriorityQueue<>();
 
-        List<String> righeScartate = new ArrayList<>();
+        List<String> logErrori = new ArrayList<>();
 
-        // =========================================================================
-        // LETTURA FILE CON GESTIONE ERRORI E RIGHE CORROTTE
-        // =========================================================================
+        // Usiamo BufferedReader al posto di Files.readAllLines perché legge riga per riga senza caricare tutto il file in memoria
         try (BufferedReader br = new BufferedReader(new FileReader(fileInput))) {
             String riga;
-            int contatoreRiga = 0;
+            int numeroRiga = 0;
 
             while ((riga = br.readLine()) != null) {
-                contatoreRiga++;
+                numeroRiga++;
 
-                // Ignoriamo riga di intestazione o righe vuote
-                if (contatoreRiga == 1 && riga.toLowerCase().startsWith("id,")) continue;
+                // Saltiamo l'intestazione del CSV e le righe vuote
+                if (numeroRiga == 1 && riga.toLowerCase().startsWith("id,")) continue;
                 if (riga.trim().isEmpty()) continue;
 
                 String[] campi = riga.split(",");
 
-                // Controllo numero campi
+                // Se mancano campi salviamo l'errore e usiamo continue per non bloccare la lettura delle altre righe
                 if (campi.length != 4) {
-                    righeScartate.add("Riga " + contatoreRiga + " scartata: numero campi errato -> " + riga);
+                    logErrori.add("Riga " + numeroRiga + " scartata (campi mancanti o troppi): " + riga);
                     continue;
                 }
 
                 String id = campi[0].trim();
                 String descrizione = campi[1].trim();
-                String livello = campi[2].trim().toUpperCase(); // Normalizziamo in maiuscolo (es. "basso" -> "BASSO")
+
+                // Usiamo toUpperCase() così accettiamo anche livelli scritti in minuscolo come "basso"
+                String livello = campi[2].trim().toUpperCase();
                 long timestamp;
 
+                // Se il timestamp non è un numero valido lo logghiamo senza interrompere il programma
                 try {
                     timestamp = Long.parseLong(campi[3].trim());
                 } catch (NumberFormatException e) {
-                    righeScartate.add("Riga " + contatoreRiga + " scartata: timestamp numerico invalido -> " + campi[3]);
+                    logErrori.add("Riga " + numeroRiga + " scartata (timestamp non valido): " + campi[3]);
                     continue;
                 }
 
-                // Controllo validità livello ammesso
+                // Se il livello è sconosciuto lo scartiamo nel log a parte
                 if (!livello.equals("CRITICO") && !livello.equals("ALTO") &&
                         !livello.equals("MEDIO") && !livello.equals("BASSO")) {
-                    righeScartate.add("Riga " + contatoreRiga + " scartata: livello sconosciuto '" + livello + "'");
+                    logErrori.add("Riga " + numeroRiga + " scartata (livello non valido): " + livello);
                     continue;
                 }
 
-                Ticket ticket = new Ticket(id, descrizione, livello, timestamp);
-                codaLavorazione.add(ticket);
+                Ticket t = new Ticket(id, descrizione, livello, timestamp);
+                coda.add(t);
 
-                // BONUS: se il ticket è CRITICO lo tracciamo e lanciamo l'allarme se ce ne sono più di 2 in attesa
-                if (ticket.livello.equals("CRITICO")) {
-                    codaCriticiInAttesa.add(ticket);
-                    if (codaCriticiInAttesa.size() > 2) {
-                        System.out.println("[ALLARME LIVELLO CRITICO] Rilevati " + codaCriticiInAttesa.size()
-                                + " ticket critici in attesa contemporaneamente! Ultimo aggiunto: " + ticket.id);
+                // Se il ticket è critico lo salviamo nella seconda coda e lanciamo l'allarme se ce ne sono più di 2 in attesa
+                if (livello.equals("CRITICO")) {
+                    criticiInAttesa.add(t);
+                    if (criticiInAttesa.size() > 2) {
+                        System.out.println("ALLARME: ci sono più di 2 ticket critici in attesa contemporaneamente! (Totale: " + criticiInAttesa.size() + ")");
                     }
                 }
             }
 
+            // Gestiamo FileNotFoundException da IOException con messaggi custom di errore
         } catch (FileNotFoundException e) {
-            System.err.println("File non trovato: verificare che " + fileInput + " sia presente nel percorso.");
+            System.err.println("Errore: il file di input non è stato trovato -> " + fileInput);
             return;
         } catch (IOException e) {
             System.err.println("Errore di I/O durante la lettura del file: " + e.getMessage());
             return;
         }
 
-        // Salvataggio degli errori di parsing su log dedicato
-        if (!righeScartate.isEmpty()) {
+        // Salviamo le righe scartate in un file di log a parte per non perderle
+        if (!logErrori.isEmpty()) {
             try (BufferedWriter bwErr = new BufferedWriter(new FileWriter(fileErrori))) {
-                for (String err : righeScartate) {
+                for (String err : logErrori) {
                     bwErr.write(err + "\n");
                 }
-                System.out.println("Segnalati " + righeScartate.size() + " errori di parsing salvati in: " + fileErrori);
             } catch (IOException e) {
-                System.err.println("Impossibile scrivere il file di log errori: " + e.getMessage());
+                System.err.println("Errore durante la scrittura del log errori: " + e.getMessage());
             }
         }
 
-
-        // =========================================================================
-        // ELABORAZIONE CON PRIORITYQUEUE E SCRITTURA REPORT (try-with-resources)
-        // =========================================================================
-        int tempoCumulativo = 0;
-        int consecutiviCriticiOAlti = 0;
-        int pauseEffettuate = 0;
-
+        int tempoTotale = 0;
+        int consecutiviCriticiAlti = 0;
+        int pause = 0;
         int countCritici = 0, countAlti = 0, countMedi = 0, countBassi = 0;
 
+        // Usiamo il try-with-resources così il BufferedWriter si chiude da solo anche in caso di eccezione
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(fileOutput))) {
-            bw.write("PIANO DI LAVORAZIONE TICKET (ORDINATO PER PRIORITA E FIFO)\n");
-            bw.write("========================================================================================\n");
-            bw.write(String.format("%-6s | %-8s | %-10s | %-16s | %s\n", "ID", "LIVELLO", "DURATA", "TEMPO CUMULATO", "DESCRIZIONE"));
-            bw.write("----------------------------------------------------------------------------------------\n");
+            bw.write("ORDINE EFFETTIVO DI LAVORAZIONE TICKET\n");
+            bw.write("--------------------------------------------------------------------------------\n");
 
-            // poll() estrae l'elemento a priorità più alta in O(log n)
-            while (!codaLavorazione.isEmpty()) {
-                Ticket t = codaLavorazione.poll();
+            // poll() estrae il ticket con priorità più alta secondo compareTo in O(log n)
+            while (!coda.isEmpty()) {
+                Ticket t = coda.poll();
 
-                // Rimuoviamo il ticket anche dalla coda di monitoraggio dei critici non lavorati
+                // Togliamo il ticket anche dalla seconda coda dei soli critici non lavorati
                 if (t.livello.equals("CRITICO")) {
-                    codaCriticiInAttesa.remove(t);
+                    criticiInAttesa.remove(t);
                 }
 
-                // Incremento contatori statistici
                 switch (t.livello) {
                     case "CRITICO": countCritici++; break;
                     case "ALTO":    countAlti++; break;
@@ -138,48 +124,39 @@ public class GestoreTicket {
                     case "BASSO":   countBassi++; break;
                 }
 
-                // VINCOLO REALISTICO: massimo 5 ticket CRITICI o ALTI di fila, poi scatta pausa obbligatoria di 10 min
+                // Incrementiamo se il ticket è critico o alto, altrimenti resettiamo il contatore
                 if (t.livello.equals("CRITICO") || t.livello.equals("ALTO")) {
-                    consecutiviCriticiOAlti++;
+                    consecutiviCriticiAlti++;
                 } else {
-                    consecutiviCriticiOAlti = 0; // se arriva un ticket MEDIO o BASSO il contatore dello stress si resetta
+                    consecutiviCriticiAlti = 0;
                 }
 
                 int durata = t.getDurataMinuti();
-                tempoCumulativo += durata;
+                tempoTotale += durata;
 
-                String rigaReport = String.format("%-6s | %-8s | %3d min    | %4d min totali  | %s",
-                        t.id, t.livello, durata, tempoCumulativo, t.descrizione);
+                String rigaReport = t.id + " | " + t.livello + " | Durata: " + durata + "m | Tempo cumulativo: " + tempoTotale + "m | " + t.descrizione;
                 bw.write(rigaReport + "\n");
-                System.out.println("Lavorato: " + rigaReport);
+                System.out.println("Lavorazione: " + rigaReport);
 
-                // Controllo pausa tecnico dopo 5 ticket ad alta intensità
-                if (consecutiviCriticiOAlti == 5) {
-                    tempoCumulativo += 10;
-                    pauseEffettuate++;
-                    consecutiviCriticiOAlti = 0; // reset contatore dopo la pausa
-                    bw.write(">> [PAUSA OBBLIGATORIA TECNICO +10 MIN] Tempo cumulato aggiornato: " + tempoCumulativo + " min\n");
-                    System.out.println(">> [PAUSA TECNICO 10 MIN]");
+                // Dopo 5 ticket critici o alti consecutivi scatta la pausa obbligatoria di 10 minuti
+                if (consecutiviCriticiAlti == 5) {
+                    tempoTotale += 10;
+                    pause++;
+                    consecutiviCriticiAlti = 0;
+                    bw.write(">> Pausa obbligatoria tecnico (+10 min) -> Tempo cumulativo: " + tempoTotale + "m\n");
                 }
             }
 
-            // Sezione finale di riepilogo
-            int totaleTicket = countCritici + countAlti + countMedi + countBassi;
-            bw.write("========================================================================================\n");
-            bw.write("RIASSUNTO FINALE:\n");
-            bw.write("- Totale ticket lavorati: " + totaleTicket + "\n");
-            bw.write("  * CRITICI: " + countCritici + "\n");
-            bw.write("  * ALTI:    " + countAlti + "\n");
-            bw.write("  * MEDI:    " + countMedi + "\n");
-            bw.write("  * BASSI:   " + countBassi + "\n");
-            bw.write("- Pause obbligatorie effettuate: " + pauseEffettuate + " (10 min ciascuna)\n");
-            bw.write("- Tempo totale stimato: " + tempoCumulativo + " minuti (~"
-                    + String.format("%.2f", tempoCumulativo / 60.0) + " ore)\n");
-
-            System.out.println("\nLavorazione completata. File generato: " + fileOutput);
+            // Riepilogo finale in fondo al file di testo come richiesto dalle specifiche
+            bw.write("--------------------------------------------------------------------------------\n");
+            bw.write("RIEPILOGO FINALE:\n");
+            bw.write("Totale ticket lavorati: " + (countCritici + countAlti + countMedi + countBassi) + "\n");
+            bw.write("Critici: " + countCritici + " | Alti: " + countAlti + " | Medi: " + countMedi + " | Bassi: " + countBassi + "\n");
+            bw.write("Pause obbligatorie effettuate: " + pause + "\n");
+            bw.write("Tempo totale stimato: " + tempoTotale + " minuti\n");
 
         } catch (IOException e) {
-            System.err.println("Errore di I/O durante la scrittura del report: " + e.getMessage());
+            System.err.println("Errore durante la scrittura del report finale: " + e.getMessage());
         }
     }
 }
